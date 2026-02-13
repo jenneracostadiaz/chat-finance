@@ -2,15 +2,9 @@ import controller.LoginController;
 import util.DatabaseConnection;
 
 /**
- * Clase principal de la aplicación ChatFinance.
- * Punto de entrada que inicializa la base de datos y arranca el controlador de login.
- * FASE 1: Estructura Base, Persistencia y Autenticación Simple
- * - Arquitectura: MVC estricto (Modelo-Vista-Controlador)
- * - Base de Datos: SQLite con JDBC puro
- * - Autenticación: Por número de WhatsApp (sin contraseña)
  *
  * @author ChatFinance Team
- * @version 1.0 - Fase 1
+ * @version 1.0.1
  */
 public class Main {
     public static void main(String[] args) {

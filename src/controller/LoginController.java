@@ -7,10 +7,12 @@ import view.ConsoleView;
 /**
  * Controlador de Login y gestión del menú principal.
  * Coordina la lógica entre la Vista (ConsoleView) y el Modelo (Usuario/UsuarioDAO).
+ * FASE 2: Integración con gestión de cuentas
  */
 public class LoginController {
     private ConsoleView vista;
     private UsuarioDAO usuarioDAO;
+    private CuentaController cuentaController;
     private Usuario usuarioActual;
 
     /**
@@ -19,6 +21,7 @@ public class LoginController {
     public LoginController() {
         this.vista = new ConsoleView();
         this.usuarioDAO = new UsuarioDAO();
+        this.cuentaController = new CuentaController(vista);
         this.usuarioActual = null;
     }
 
@@ -108,18 +111,30 @@ public class LoginController {
 
             switch (opcion) {
                 case 1:
-                    // Opción: Ver Saldo (Próximamente)
-                    vista.mostrarProximamente();
+                    // Opción: Ver Mis Cuentas y Saldos (FASE 2)
+                    cuentaController.verSaldos(usuarioActual);
                     break;
 
                 case 2:
+                    // Opción: Agregar Cuenta (Próximamente)
+                    vista.mostrarProximamente();
+                    vista.esperarEnter();
+                    break;
+
+                case 3:
                     // Opción: Salir
                     vista.mostrarDespedida();
                     continuar = false;
                     break;
 
+                case 99:
+                    // Opción oculta: Crear cuentas de prueba (FASE 2 - Mock)
+                    cuentaController.crearCuentasDePrueba(usuarioActual);
+                    break;
+
                 default:
-                    vista.mostrarError("Opción inválida. Por favor, seleccione 1 o 2.");
+                    vista.mostrarError("Opción inválida. Por favor, seleccione una opción válida.");
+                    vista.esperarEnter();
                     break;
             }
         }

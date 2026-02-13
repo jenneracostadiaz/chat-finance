@@ -68,6 +68,7 @@ public class DatabaseConnection {
      * Crea las tablas necesarias si no existen.
      */
     private void inicializarTablas() {
+        // Tabla de usuarios
         String sqlCrearTablaUsuarios = """
             CREATE TABLE IF NOT EXISTS usuarios (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,8 +78,34 @@ public class DatabaseConnection {
             )
         """;
 
+        // Tabla de cuentas (Single Table Inheritance)
+        // FASE 2: Gestión de Cuentas y Saldos
+        String sqlCrearTablaCuentas = """
+            CREATE TABLE IF NOT EXISTS cuentas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL,
+                numero_cuenta TEXT NOT NULL,
+                saldo REAL NOT NULL DEFAULT 0.0,
+                tipo_cuenta TEXT NOT NULL CHECK(tipo_cuenta IN ('BILLETERA', 'BANCO')),
+                
+                -- Campos específicos de BilleteraDigital
+                alias TEXT,
+                proveedor TEXT,
+                
+                -- Campos específicos de CuentaBancaria
+                banco TEXT,
+                cci TEXT,
+                
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                
+                FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+                UNIQUE(usuario_id, numero_cuenta)
+            )
+        """;
+
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(sqlCrearTablaUsuarios);
+            stmt.execute(sqlCrearTablaCuentas);
             System.out.println("✓ Tablas de base de datos verificadas/creadas.");
         } catch (SQLException e) {
             System.err.println("✗ Error al inicializar las tablas de la base de datos.");

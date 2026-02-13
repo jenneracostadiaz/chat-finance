@@ -91,8 +91,10 @@ public class ConsoleView {
         mostrarMensaje("\n" + "─".repeat(50));
         mostrarMensaje("💰 MENÚ PRINCIPAL - CHATFINANCE");
         mostrarMensaje("─".repeat(50));
-        mostrarMensaje("1. Ver Saldo (Próximamente)");
-        mostrarMensaje("2. Salir");
+        mostrarMensaje("1. Ver Mis Cuentas y Saldos");
+        mostrarMensaje("2. Agregar Cuenta (Próximamente)");
+        mostrarMensaje("3. Salir");
+        mostrarMensaje("\n💡 Tip: Opción 99 para datos de prueba");
         mostrarMensaje("─".repeat(50));
         System.out.print("➤ Seleccione una opción: ");
     }
@@ -127,6 +129,14 @@ public class ConsoleView {
         mostrarMensaje("\n" + "═".repeat(50));
         mostrarMensaje("👋 ¡HASTA PRONTO! Gracias por usar ChatFinance.");
         mostrarMensaje("═".repeat(50) + "\n");
+    }
+
+    /**
+     * Espera a que el usuario presione Enter para continuar.
+     */
+    public void esperarEnter() {
+        System.out.print("\n➤ Presione Enter para continuar...");
+        scanner.nextLine();
     }
 
     /**
