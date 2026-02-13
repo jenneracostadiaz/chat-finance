@@ -37,7 +37,7 @@ public class Main {
         System.out.println("\n  💰 Sistema de Gestión Financiera Personal 💰");
         System.out.println("  📱 Autenticación: WhatsApp");
         System.out.println("  🗄️  Base de Datos: SQLite");
-        System.out.println("  ⚙️  Fase 1: Estructura Base y Autenticación");
+        System.out.println("  ⚙️  Fase 2: Gestión de Cuentas y Saldos");
         System.out.println("═".repeat(60) + "\n");
     }
 }

@@ -116,9 +116,8 @@ public class LoginController {
                     break;
 
                 case 2:
-                    // Opción: Agregar Cuenta (Próximamente)
-                    vista.mostrarProximamente();
-                    vista.esperarEnter();
+                    // Opción: Agregar Cuenta (FASE 2 - IMPLEMENTADO)
+                    cuentaController.agregarCuenta(usuarioActual);
                     break;
 
                 case 3:

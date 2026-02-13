@@ -56,13 +56,25 @@ public class CuentaDAO {
             int filasAfectadas = pstmt.executeUpdate();
 
             if (filasAfectadas > 0) {
-                // Obtener el ID generado
+                // La inserción fue exitosa
+                System.out.println("✓ Cuenta insertada en la base de datos correctamente.");
+
+                // Intentar obtener el ID generado
                 try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
                         cuenta.setId(generatedKeys.getInt(1));
-                        return cuenta;
+                        System.out.println("✓ ID generado: " + cuenta.getId());
+                    } else {
+                        System.out.println("⚠️  Advertencia: No se pudo obtener el ID generado, pero la cuenta fue creada.");
                     }
+                } catch (SQLException e) {
+                    System.out.println("⚠️  Advertencia: Error al obtener ID generado: " + e.getMessage());
                 }
+
+                // Retornar la cuenta aunque no tengamos el ID
+                return cuenta;
+            } else {
+                System.out.println("⚠️  No se insertaron filas en la base de datos.");
             }
         } catch (SQLException e) {
             System.err.println("✗ Error al crear la cuenta en la base de datos.");

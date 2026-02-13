@@ -2,6 +2,7 @@ package util;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -80,6 +81,7 @@ public class DatabaseConnection {
 
         // Tabla de cuentas (Single Table Inheritance)
         // FASE 2: Gestión de Cuentas y Saldos
+        // NOTA: Permite mismo número en diferentes proveedores (ej: Yape y Plin con mismo celular)
         String sqlCrearTablaCuentas = """
             CREATE TABLE IF NOT EXISTS cuentas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,19 +100,86 @@ public class DatabaseConnection {
                 
                 fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 
-                FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-                UNIQUE(usuario_id, numero_cuenta)
+                FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
             )
         """;
 
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(sqlCrearTablaUsuarios);
-            stmt.execute(sqlCrearTablaCuentas);
+
+            // Verificar si necesitamos migrar la tabla cuentas
+            if (necesitaMigracion()) {
+                migrarTablaCuentas(stmt);
+            } else {
+                stmt.execute(sqlCrearTablaCuentas);
+            }
+
             System.out.println("✓ Tablas de base de datos verificadas/creadas.");
         } catch (SQLException e) {
             System.err.println("✗ Error al inicializar las tablas de la base de datos.");
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Verifica si la tabla cuentas necesita migración (tiene el constraint antiguo).
+     */
+    private boolean necesitaMigracion() {
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT sql FROM sqlite_master WHERE type='table' AND name='cuentas'")) {
+
+            if (rs.next()) {
+                String tableSql = rs.getString("sql");
+                // Si contiene el constraint antiguo, necesita migración
+                return tableSql != null && tableSql.contains("UNIQUE(usuario_id, numero_cuenta)");
+            }
+        } catch (SQLException e) {
+            // Si hay error, asumimos que no existe la tabla
+            return false;
+        }
+        return false;
+    }
+
+    /**
+     * Migra la tabla cuentas eliminando el constraint restrictivo.
+     */
+    private void migrarTablaCuentas(Statement stmt) throws SQLException {
+        System.out.println("⚙️  Migrando tabla cuentas para permitir mismo número en diferentes proveedores...");
+
+        // Paso 1: Crear tabla temporal con la nueva estructura
+        String sqlTempTable = """
+            CREATE TABLE cuentas_temp (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL,
+                numero_cuenta TEXT NOT NULL,
+                saldo REAL NOT NULL DEFAULT 0.0,
+                tipo_cuenta TEXT NOT NULL CHECK(tipo_cuenta IN ('BILLETERA', 'BANCO')),
+                alias TEXT,
+                proveedor TEXT,
+                banco TEXT,
+                cci TEXT,
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+            )
+        """;
+        stmt.execute(sqlTempTable);
+
+        // Paso 2: Copiar datos existentes
+        String sqlCopyData = """
+            INSERT INTO cuentas_temp 
+            SELECT id, usuario_id, numero_cuenta, saldo, tipo_cuenta, 
+                   alias, proveedor, banco, cci, fecha_creacion
+            FROM cuentas
+        """;
+        stmt.execute(sqlCopyData);
+
+        // Paso 3: Eliminar tabla antigua
+        stmt.execute("DROP TABLE cuentas");
+
+        // Paso 4: Renombrar tabla temporal
+        stmt.execute("ALTER TABLE cuentas_temp RENAME TO cuentas");
+
+        System.out.println("✓ Migración completada. Ahora puedes tener Yape y Plin con el mismo número.");
     }
 
     /**

@@ -122,13 +122,141 @@ public class CuentaController {
     }
 
     /**
-     * Agrega una nueva cuenta (para futuras fases).
+     * Agrega una nueva cuenta de forma interactiva.
+     * Permite al usuario elegir el tipo de cuenta y llenar el formulario.
      *
      * @param usuario Usuario logueado
      */
     public void agregarCuenta(Usuario usuario) {
-        // TODO: Implementar en fase futura
-        System.out.println("\n⚠️  Función en desarrollo (Próxima fase).\n");
+        // Mostrar menú de selección de tipo de cuenta
+        int opcion = vista.mostrarMenuTipoCuenta();
+
+        CuentaFinanciera nuevaCuenta = null;
+
+        switch (opcion) {
+            case 1:
+                // Crear Billetera Digital
+                nuevaCuenta = crearBilleteraDigital(usuario);
+                break;
+
+            case 2:
+                // Crear Cuenta Bancaria
+                nuevaCuenta = crearCuentaBancaria(usuario);
+                break;
+
+            case 0:
+                // Cancelar operación
+                vista.mostrarOperacionCancelada();
+                vista.esperarEnter();
+                return;
+
+            default:
+                vista.mostrarError("Opción inválida.");
+                vista.esperarEnter();
+                return;
+        }
+
+        // Si se creó una cuenta, guardarla en la BD
+        if (nuevaCuenta != null) {
+            CuentaFinanciera cuentaGuardada = cuentaDAO.crear(nuevaCuenta);
+
+            if (cuentaGuardada != null) {
+                // Mostrar confirmación con el detalle polimórfico
+                vista.mostrarCuentaCreada(
+                    nuevaCuenta.getTipoCuenta(),
+                    nuevaCuenta.getDetalle()
+                );
+            } else {
+                vista.mostrarError("No se pudo guardar la cuenta. Intente nuevamente.");
+            }
+        }
+
         vista.esperarEnter();
+    }
+
+    /**
+     * Crea una Billetera Digital solicitando los datos por consola.
+     *
+     * @param usuario Usuario logueado
+     * @return BilleteraDigital creada o null si hay error
+     */
+    private BilleteraDigital crearBilleteraDigital(Usuario usuario) {
+        try {
+            // Solicitar datos del formulario
+            String[] datos = vista.solicitarDatosBilletera();
+
+            // datos[0] = alias
+            // datos[1] = proveedor
+            // datos[2] = numeroCuenta
+            // datos[3] = saldo
+
+            // Validar que no estén vacíos
+            if (datos[0].isEmpty() || datos[1].isEmpty() || datos[2].isEmpty()) {
+                vista.mostrarError("Todos los campos son obligatorios.");
+                return null;
+            }
+
+            // Parsear saldo
+            double saldo = Double.parseDouble(datos[3]);
+
+            // Crear la billetera
+            return new BilleteraDigital(
+                usuario.getId(),
+                datos[2],  // numeroCuenta
+                saldo,
+                datos[0],  // alias
+                datos[1]   // proveedor
+            );
+
+        } catch (NumberFormatException e) {
+            vista.mostrarError("Error al procesar el saldo.");
+            return null;
+        } catch (Exception e) {
+            vista.mostrarError("Error al crear la billetera: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Crea una Cuenta Bancaria solicitando los datos por consola.
+     *
+     * @param usuario Usuario logueado
+     * @return CuentaBancaria creada o null si hay error
+     */
+    private CuentaBancaria crearCuentaBancaria(Usuario usuario) {
+        try {
+            // Solicitar datos del formulario
+            String[] datos = vista.solicitarDatosCuentaBancaria();
+
+            // datos[0] = banco
+            // datos[1] = cci (puede ser null)
+            // datos[2] = numeroCuenta
+            // datos[3] = saldo
+
+            // Validar que no estén vacíos (excepto CCI que es opcional)
+            if (datos[0].isEmpty() || datos[2].isEmpty()) {
+                vista.mostrarError("El banco y número de cuenta son obligatorios.");
+                return null;
+            }
+
+            // Parsear saldo
+            double saldo = Double.parseDouble(datos[3]);
+
+            // Crear la cuenta bancaria
+            return new CuentaBancaria(
+                usuario.getId(),
+                datos[2],  // numeroCuenta
+                saldo,
+                datos[0],  // banco
+                datos[1]   // cci (puede ser null)
+            );
+
+        } catch (NumberFormatException e) {
+            vista.mostrarError("Error al procesar el saldo.");
+            return null;
+        } catch (Exception e) {
+            vista.mostrarError("Error al crear la cuenta bancaria: " + e.getMessage());
+            return null;
+        }
     }
 }
