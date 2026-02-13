@@ -3,23 +3,45 @@ package modelo;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Modelo que representa un Usuario del sistema.
+ * En la Fase 1, la autenticación se realiza únicamente por número de WhatsApp.
+ */
 public class Usuario {
-    private String idUsuario;
-    private String numeroWhatsApp;
-    private String pinSeguridad;
+    private Integer id; // ID autoincremental de la base de datos
+    private String numeroWhatsApp; // Llave de autenticación única
+    private String nombre; // Nombre del usuario
     private List<CuentaFinanciera> cuentas; // Agregación
     private List<Transaccion> transacciones; // Asociación
 
-    public Usuario(String idUsuario, String numeroWhatsApp, String pinSeguridad) {
-        this.idUsuario = idUsuario;
-        this.numeroWhatsApp = numeroWhatsApp;
-        this.pinSeguridad = pinSeguridad;
+    /**
+     * Constructor vacío para instanciación desde DAO.
+     */
+    public Usuario() {
         this.cuentas = new ArrayList<>();
         this.transacciones = new ArrayList<>();
     }
 
-    public boolean autenticar(String pin) {
-        return this.pinSeguridad.equals(pin);
+    /**
+     * Constructor con parámetros para crear nuevo usuario.
+     * @param numeroWhatsApp Número de WhatsApp del usuario
+     * @param nombre Nombre del usuario
+     */
+    public Usuario(String numeroWhatsApp, String nombre) {
+        this();
+        this.numeroWhatsApp = numeroWhatsApp;
+        this.nombre = nombre;
+    }
+
+    /**
+     * Constructor completo con ID (usado al recuperar de DB).
+     * @param id ID del usuario en la base de datos
+     * @param numeroWhatsApp Número de WhatsApp del usuario
+     * @param nombre Nombre del usuario
+     */
+    public Usuario(Integer id, String numeroWhatsApp, String nombre) {
+        this(numeroWhatsApp, nombre);
+        this.id = id;
     }
 
     public void registrarTransaccion(Transaccion transaccion) {
@@ -34,13 +56,14 @@ public class Usuario {
         this.cuentas.remove(cuenta);
     }
 
-    // Getters y Setters
-    public String getIdUsuario() {
-        return idUsuario;
+    // ==================== Getters y Setters ====================
+
+    public Integer getId() {
+        return id;
     }
 
-    public void setIdUsuario(String idUsuario) {
-        this.idUsuario = idUsuario;
+    public void setId(Integer id) {
+        this.id = id;
     }
 
     public String getNumeroWhatsApp() {
@@ -51,12 +74,12 @@ public class Usuario {
         this.numeroWhatsApp = numeroWhatsApp;
     }
 
-    public String getPinSeguridad() {
-        return pinSeguridad;
+    public String getNombre() {
+        return nombre;
     }
 
-    public void setPinSeguridad(String pinSeguridad) {
-        this.pinSeguridad = pinSeguridad;
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
     }
 
     public List<CuentaFinanciera> getCuentas() {
