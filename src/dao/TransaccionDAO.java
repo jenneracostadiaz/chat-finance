@@ -6,30 +6,90 @@ import util.DatabaseConnection;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * DAO para gestionar los movimientos financieros (ingresos, gastos, transferencias).
+ * DAO para movimientos financieros. Garantiza atomicidad mediante transacciones SQL explícitas.
+ * Implementa {@link CrudRepository} con {@link MovimientoRegistro} como tipo de entidad.
  *
- * PRINCIPIO CLAVE: Atomicidad con transacciones SQL.
- *   connection.setAutoCommit(false) → operaciones → connection.commit()
- *   Si algo falla → connection.rollback()
- *
- * FASE 4: columna `categoria` añadida a todos los INSERT + métodos de reporte analítico.
+ * Patrón de atomicidad aplicado en cada operación de escritura:
+ *   setAutoCommit(false) → operaciones → commit()  /  rollback() en caso de error.
  */
-public class TransaccionDAO {
+public class TransaccionDAO implements CrudRepository<MovimientoRegistro, Integer> {
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // INGRESO
-    // ─────────────────────────────────────────────────────────────────────────
+    @Override
+    public MovimientoRegistro guardar(MovimientoRegistro movimiento) {
+        String sql = "INSERT INTO transacciones " +
+                     "(cuenta_origen_id, cuenta_destino_id, tipo, monto, descripcion, categoria) " +
+                     "VALUES (?, ?, ?, ?, ?, ?)";
 
-    /**
-     * Registra un ingreso en una cuenta (ACID).
-     * 1. INSERT en transacciones (con categoría)
-     * 2. UPDATE saldo += monto
-     */
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
+            pstmt.setInt(1, movimiento.getCuentaOrigenId());
+            if (movimiento.getCuentaDestinoId() != null) {
+                pstmt.setInt(2, movimiento.getCuentaDestinoId());
+            } else {
+                pstmt.setNull(2, Types.INTEGER);
+            }
+            pstmt.setString(3, movimiento.getTipo().name());
+            pstmt.setDouble(4, movimiento.getMonto());
+            pstmt.setString(5, movimiento.getDescripcion());
+            pstmt.setString(6, movimiento.getCategoria());
+            pstmt.executeUpdate();
+
+            try (ResultSet llaves = pstmt.getGeneratedKeys()) {
+                if (llaves.next()) movimiento.setId(llaves.getInt(1));
+            }
+            return movimiento;
+
+        } catch (SQLException e) {
+            System.err.println("Error al guardar movimiento: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    @Override
+    public MovimientoRegistro buscarPorId(Integer id) {
+        String sql = "SELECT id, cuenta_origen_id, cuenta_destino_id, tipo, monto, " +
+                     "       fecha, descripcion, categoria FROM transacciones WHERE id = ?";
+
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) return mapearFila(rs);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al buscar movimiento id=" + id + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    @Override
+    public List<MovimientoRegistro> listarTodos() {
+        List<MovimientoRegistro> lista = new ArrayList<>();
+        String sql = "SELECT id, cuenta_origen_id, cuenta_destino_id, tipo, monto, " +
+                     "       fecha, descripcion, categoria FROM transacciones ORDER BY fecha DESC";
+
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            while (rs.next()) lista.add(mapearFila(rs));
+
+        } catch (SQLException e) {
+            System.err.println("Error al listar movimientos: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return lista;
+    }
+
     public MovimientoRegistro registrarIngreso(int cuentaId, double monto,
                                                String descripcion, String categoria) {
         Connection conn = DatabaseConnection.getInstance().getConnection();
@@ -49,8 +109,8 @@ public class TransaccionDAO {
                 pstmt.setString(3, descripcion);
                 pstmt.setString(4, categoria);
                 pstmt.executeUpdate();
-                try (ResultSet keys = pstmt.getGeneratedKeys()) {
-                    if (keys.next()) nuevoId = keys.getInt(1);
+                try (ResultSet llaves = pstmt.getGeneratedKeys()) {
+                    if (llaves.next()) nuevoId = llaves.getInt(1);
                 }
             }
 
@@ -71,21 +131,12 @@ public class TransaccionDAO {
 
         } catch (SQLException e) {
             rollback(conn);
-            System.err.println("✗ Error al registrar ingreso. ROLLBACK ejecutado.");
+            System.err.println("Error al registrar ingreso. ROLLBACK ejecutado: " + e.getMessage());
             e.printStackTrace();
             return null;
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // GASTO
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Registra un gasto en una cuenta (ACID).
-     * 1. INSERT en transacciones (con categoría)
-     * 2. UPDATE saldo -= monto
-     */
     public MovimientoRegistro registrarGasto(int cuentaId, double monto,
                                              String descripcion, String categoria) {
         Connection conn = DatabaseConnection.getInstance().getConnection();
@@ -105,8 +156,8 @@ public class TransaccionDAO {
                 pstmt.setString(3, descripcion);
                 pstmt.setString(4, categoria);
                 pstmt.executeUpdate();
-                try (ResultSet keys = pstmt.getGeneratedKeys()) {
-                    if (keys.next()) nuevoId = keys.getInt(1);
+                try (ResultSet llaves = pstmt.getGeneratedKeys()) {
+                    if (llaves.next()) nuevoId = llaves.getInt(1);
                 }
             }
 
@@ -127,27 +178,19 @@ public class TransaccionDAO {
 
         } catch (SQLException e) {
             rollback(conn);
-            System.err.println("✗ Error al registrar gasto. ROLLBACK ejecutado.");
+            System.err.println("Error al registrar gasto. ROLLBACK ejecutado: " + e.getMessage());
             e.printStackTrace();
             return null;
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TRANSFERENCIA
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Realiza una transferencia entre dos cuentas (ACID — 3 operaciones).
-     * Las transferencias usan categoría fija "Transferencia 🔄".
-     */
     public MovimientoRegistro realizarTransferencia(int origenId, int destinoId,
                                                     double monto, String descripcion) {
         Connection conn = DatabaseConnection.getInstance().getConnection();
 
         String sqlInsert    = "INSERT INTO transacciones " +
                               "(cuenta_origen_id, cuenta_destino_id, tipo, monto, descripcion, categoria) " +
-                              "VALUES (?, ?, 'TRANSFERENCIA', ?, ?, 'Transferencia 🔄')";
+                              "VALUES (?, ?, 'TRANSFERENCIA', ?, ?, 'Transferencia')";
         String sqlDescontar = "UPDATE cuentas SET saldo = saldo - ? WHERE id = ?";
         String sqlAcreditar = "UPDATE cuentas SET saldo = saldo + ? WHERE id = ?";
 
@@ -161,8 +204,8 @@ public class TransaccionDAO {
                 pstmt.setDouble(3, monto);
                 pstmt.setString(4, descripcion);
                 pstmt.executeUpdate();
-                try (ResultSet keys = pstmt.getGeneratedKeys()) {
-                    if (keys.next()) nuevoId = keys.getInt(1);
+                try (ResultSet llaves = pstmt.getGeneratedKeys()) {
+                    if (llaves.next()) nuevoId = llaves.getInt(1);
                 }
             }
 
@@ -183,26 +226,19 @@ public class TransaccionDAO {
 
             MovimientoRegistro mov = new MovimientoRegistro(
                 origenId, destinoId, MovimientoRegistro.Tipo.TRANSFERENCIA,
-                monto, descripcion, "Transferencia 🔄"
+                monto, descripcion, "Transferencia"
             );
             mov.setId(nuevoId);
             return mov;
 
         } catch (SQLException e) {
             rollback(conn);
-            System.err.println("✗ Error en transferencia. ROLLBACK de las 3 operaciones.");
+            System.err.println("Error en transferencia. ROLLBACK de las 3 operaciones: " + e.getMessage());
             e.printStackTrace();
             return null;
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // LISTAR últimos movimientos
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Devuelve los últimos N movimientos de todas las cuentas del usuario.
-     */
     public List<MovimientoRegistro> listarUltimosMovimientos(int usuarioId, int limite) {
         List<MovimientoRegistro> movimientos = new ArrayList<>();
 
@@ -222,53 +258,20 @@ public class TransaccionDAO {
             pstmt.setInt(2, limite);
 
             try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    int id             = rs.getInt("id");
-                    int origenId       = rs.getInt("cuenta_origen_id");
-                    Integer destinoId  = rs.getObject("cuenta_destino_id") != null
-                                        ? rs.getInt("cuenta_destino_id") : null;
-                    String tipoStr     = rs.getString("tipo");
-                    double monto       = rs.getDouble("monto");
-                    String fechaStr    = rs.getString("fecha");
-                    String descripcion = rs.getString("descripcion");
-                    String categoria   = rs.getString("categoria");
-
-                    MovimientoRegistro.Tipo tipo = MovimientoRegistro.Tipo.valueOf(tipoStr);
-
-                    LocalDateTime fecha = (fechaStr != null)
-                            ? LocalDateTime.parse(fechaStr.replace(" ", "T"))
-                            : LocalDateTime.now();
-
-                    movimientos.add(new MovimientoRegistro(
-                        id, origenId, destinoId, tipo, monto, fecha, descripcion, categoria
-                    ));
-                }
+                while (rs.next()) movimientos.add(mapearFila(rs));
             }
 
         } catch (SQLException e) {
-            System.err.println("✗ Error al listar movimientos.");
+            System.err.println("Error al listar movimientos del usuario " + usuarioId + ": " + e.getMessage());
             e.printStackTrace();
         }
-
         return movimientos;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // FASE 4: REPORTES ANALÍTICOS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Agrupa y suma los GASTOS del usuario por categoría.
-     * Usa GROUP BY + SUM() para analítica.
-     *
-     * @param usuarioId ID del usuario
-     * @return Map ordenado de categoria → total gastado (mayor a menor)
-     */
     public Map<String, Double> obtenerResumenGastos(int usuarioId) {
-        // LinkedHashMap preserva el orden de inserción (ORDER BY en SQL ya lo ordena)
-        Map<String, Double> resumen = new LinkedHashMap<>();
+        Map<String, Double> resumen = new HashMap<>();
 
-        String sql = "SELECT COALESCE(t.categoria, 'Sin categoría') AS categoria, " +
+        String sql = "SELECT COALESCE(t.categoria, 'Sin categoria') AS categoria, " +
                      "       SUM(t.monto) AS total " +
                      "FROM transacciones t " +
                      "INNER JOIN cuentas c ON t.cuenta_origen_id = c.id " +
@@ -287,23 +290,16 @@ public class TransaccionDAO {
             }
 
         } catch (SQLException e) {
-            System.err.println("✗ Error al obtener resumen de gastos.");
+            System.err.println("Error al obtener resumen de gastos: " + e.getMessage());
             e.printStackTrace();
         }
-
         return resumen;
     }
 
-    /**
-     * Agrupa y suma los INGRESOS del usuario por categoría.
-     *
-     * @param usuarioId ID del usuario
-     * @return Map ordenado de categoria → total ingresado (mayor a menor)
-     */
     public Map<String, Double> obtenerResumenIngresos(int usuarioId) {
-        Map<String, Double> resumen = new LinkedHashMap<>();
+        Map<String, Double> resumen = new HashMap<>();
 
-        String sql = "SELECT COALESCE(t.categoria, 'Sin categoría') AS categoria, " +
+        String sql = "SELECT COALESCE(t.categoria, 'Sin categoria') AS categoria, " +
                      "       SUM(t.monto) AS total " +
                      "FROM transacciones t " +
                      "INNER JOIN cuentas c ON t.cuenta_origen_id = c.id " +
@@ -322,18 +318,31 @@ public class TransaccionDAO {
             }
 
         } catch (SQLException e) {
-            System.err.println("✗ Error al obtener resumen de ingresos.");
+            System.err.println("Error al obtener resumen de ingresos: " + e.getMessage());
             e.printStackTrace();
         }
-
         return resumen;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Utilidad privada
-    // ─────────────────────────────────────────────────────────────────────────
+    private MovimientoRegistro mapearFila(ResultSet rs) throws SQLException {
+        int      id          = rs.getInt("id");
+        int      origenId    = rs.getInt("cuenta_origen_id");
+        Integer  destinoId   = rs.getObject("cuenta_destino_id") != null ? rs.getInt("cuenta_destino_id") : null;
+        String   tipoStr     = rs.getString("tipo");
+        double   monto       = rs.getDouble("monto");
+        String   fechaStr    = rs.getString("fecha");
+        String   descripcion = rs.getString("descripcion");
+        String   categoria   = rs.getString("categoria");
 
-    /** Ejecuta rollback y restaura autoCommit sin propagar excepciones. */
+        MovimientoRegistro.Tipo tipo = MovimientoRegistro.Tipo.valueOf(tipoStr);
+
+        LocalDateTime fecha = (fechaStr != null)
+                ? LocalDateTime.parse(fechaStr.replace(" ", "T"))
+                : LocalDateTime.now();
+
+        return new MovimientoRegistro(id, origenId, destinoId, tipo, monto, fecha, descripcion, categoria);
+    }
+
     private void rollback(Connection conn) {
         try {
             conn.rollback();

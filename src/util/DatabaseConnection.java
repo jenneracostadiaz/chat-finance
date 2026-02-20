@@ -7,231 +7,168 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /**
- * Clase Singleton para gestionar la conexión a la base de datos SQLite.
- * Garantiza que solo exista una instancia de conexión en toda la aplicación.
+ * Singleton que gestiona la conexion JDBC a SQLite.
+ * Una sola instancia de {@link Connection} es reutilizada durante toda la sesion.
  */
 public class DatabaseConnection {
+
     private static DatabaseConnection instance;
     private Connection connection;
     private static final String DB_URL = "jdbc:sqlite:finanzas.db";
 
-    /**
-     * Constructor privado para implementar el patrón Singleton.
-     * Establece la conexión con la base de datos.
-     */
     private DatabaseConnection() {
         try {
-            // Cargar el driver de SQLite
             Class.forName("org.sqlite.JDBC");
-            // Establecer la conexión
             this.connection = DriverManager.getConnection(DB_URL);
-            System.out.println("✓ Conexión a base de datos establecida correctamente.");
-            // Inicializar las tablas
+            System.out.println("Conexion a base de datos establecida.");
             inicializarTablas();
         } catch (ClassNotFoundException e) {
-            System.err.println("✗ Error: Driver de SQLite no encontrado.");
+            System.err.println("Error: Driver de SQLite no encontrado.");
             e.printStackTrace();
         } catch (SQLException e) {
-            System.err.println("✗ Error al conectar con la base de datos.");
+            System.err.println("Error al conectar con la base de datos.");
             e.printStackTrace();
         }
     }
 
-    /**
-     * Obtiene la instancia única de DatabaseConnection (Singleton).
-     * @return la instancia única de DatabaseConnection
-     */
+    /** Retorna la instancia unica (patron Singleton, thread-safe). */
     public static synchronized DatabaseConnection getInstance() {
-        if (instance == null) {
-            instance = new DatabaseConnection();
-        }
+        if (instance == null) instance = new DatabaseConnection();
         return instance;
     }
 
-    /**
-     * Obtiene la conexión a la base de datos.
-     * @return Connection objeto de conexión JDBC
-     */
     public Connection getConnection() {
         try {
-            // Verificar si la conexión está cerrada y reabrirla si es necesario
             if (connection == null || connection.isClosed()) {
                 connection = DriverManager.getConnection(DB_URL);
             }
         } catch (SQLException e) {
-            System.err.println("✗ Error al obtener la conexión.");
+            System.err.println("Error al obtener la conexion.");
             e.printStackTrace();
         }
         return connection;
     }
 
-    /**
-     * Crea las tablas necesarias si no existen.
-     */
     private void inicializarTablas() {
-        // Tabla de usuarios
-        String sqlCrearTablaUsuarios = """
-            CREATE TABLE IF NOT EXISTS usuarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                numero_whatsapp TEXT NOT NULL UNIQUE,
-                nombre TEXT NOT NULL,
-                fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """;
+        String sqlUsuarios =
+            "CREATE TABLE IF NOT EXISTS usuarios (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    numero_whatsapp TEXT NOT NULL UNIQUE," +
+            "    nombre TEXT NOT NULL," +
+            "    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+            ")";
 
-        // Tabla de cuentas (Single Table Inheritance)
-        // FASE 2: Gestión de Cuentas y Saldos
-        // NOTA: Permite mismo número en diferentes proveedores (ej: Yape y Plin con mismo celular)
-        String sqlCrearTablaCuentas = """
-            CREATE TABLE IF NOT EXISTS cuentas (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                usuario_id INTEGER NOT NULL,
-                numero_cuenta TEXT NOT NULL,
-                saldo REAL NOT NULL DEFAULT 0.0,
-                tipo_cuenta TEXT NOT NULL CHECK(tipo_cuenta IN ('BILLETERA', 'BANCO')),
-                
-                -- Campos específicos de BilleteraDigital
-                alias TEXT,
-                proveedor TEXT,
-                
-                -- Campos específicos de CuentaBancaria
-                banco TEXT,
-                cci TEXT,
-                
-                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                
-                FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
-            )
-        """;
+        String sqlCuentas =
+            "CREATE TABLE IF NOT EXISTS cuentas (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    usuario_id INTEGER NOT NULL," +
+            "    numero_cuenta TEXT NOT NULL," +
+            "    saldo REAL NOT NULL DEFAULT 0.0," +
+            "    tipo_cuenta TEXT NOT NULL CHECK(tipo_cuenta IN ('BILLETERA', 'BANCO'))," +
+            "    alias TEXT," +
+            "    proveedor TEXT," +
+            "    banco TEXT," +
+            "    cci TEXT," +
+            "    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+            "    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)" +
+            ")";
+
+        String sqlTransacciones =
+            "CREATE TABLE IF NOT EXISTS transacciones (" +
+            "    id                 INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    cuenta_origen_id   INTEGER NOT NULL," +
+            "    cuenta_destino_id  INTEGER," +
+            "    tipo               TEXT NOT NULL CHECK(tipo IN ('INGRESO', 'GASTO', 'TRANSFERENCIA'))," +
+            "    monto              REAL NOT NULL CHECK(monto > 0)," +
+            "    descripcion        TEXT," +
+            "    fecha              TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+            "    FOREIGN KEY (cuenta_origen_id)  REFERENCES cuentas(id)," +
+            "    FOREIGN KEY (cuenta_destino_id) REFERENCES cuentas(id)" +
+            ")";
 
         try (Statement stmt = connection.createStatement()) {
-            stmt.execute(sqlCrearTablaUsuarios);
+            stmt.execute(sqlUsuarios);
 
-            // Verificar si necesitamos migrar la tabla cuentas
             if (necesitaMigracion()) {
                 migrarTablaCuentas(stmt);
             } else {
-                stmt.execute(sqlCrearTablaCuentas);
+                stmt.execute(sqlCuentas);
             }
 
-            // FASE 3: Tabla de transacciones
-            String sqlCrearTablaTransacciones =
-                "CREATE TABLE IF NOT EXISTS transacciones (" +
-                "    id                 INTEGER PRIMARY KEY AUTOINCREMENT," +
-                "    cuenta_origen_id   INTEGER NOT NULL," +
-                "    cuenta_destino_id  INTEGER," +
-                "    tipo               TEXT NOT NULL CHECK(tipo IN ('INGRESO', 'GASTO', 'TRANSFERENCIA'))," +
-                "    monto              REAL NOT NULL CHECK(monto > 0)," +
-                "    descripcion        TEXT," +
-                "    fecha              TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
-                "    FOREIGN KEY (cuenta_origen_id)  REFERENCES cuentas(id)," +
-                "    FOREIGN KEY (cuenta_destino_id) REFERENCES cuentas(id)" +
-                ")";
-            stmt.execute(sqlCrearTablaTransacciones);
+            stmt.execute(sqlTransacciones);
 
-            // FASE 4: Agregar columna `categoria` si aún no existe (ALTER TABLE idempotente)
             if (!columnaExiste("transacciones", "categoria")) {
                 stmt.execute("ALTER TABLE transacciones ADD COLUMN categoria TEXT");
-                System.out.println("⚙️  Migración Fase 4: columna 'categoria' añadida a transacciones.");
+                System.out.println("Migracion aplicada: columna 'categoria' añadida.");
             }
 
-            System.out.println("✓ Tablas de base de datos verificadas/creadas.");
+            System.out.println("Tablas verificadas/creadas correctamente.");
+
         } catch (SQLException e) {
-            System.err.println("✗ Error al inicializar las tablas de la base de datos.");
+            System.err.println("Error al inicializar las tablas.");
             e.printStackTrace();
         }
     }
 
-    /**
-     * Verifica si la tabla cuentas necesita migración (tiene el constraint antiguo).
-     */
     private boolean necesitaMigracion() {
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT sql FROM sqlite_master WHERE type='table' AND name='cuentas'")) {
-
+             ResultSet rs = stmt.executeQuery(
+                     "SELECT sql FROM sqlite_master WHERE type='table' AND name='cuentas'")) {
             if (rs.next()) {
-                String tableSql = rs.getString("sql");
-                // Si contiene el constraint antiguo, necesita migración
-                return tableSql != null && tableSql.contains("UNIQUE(usuario_id, numero_cuenta)");
+                String sql = rs.getString("sql");
+                return sql != null && sql.contains("UNIQUE(usuario_id, numero_cuenta)");
             }
         } catch (SQLException e) {
-            // Si hay error, asumimos que no existe la tabla
             return false;
         }
         return false;
     }
 
-    /**
-     * Migra la tabla cuentas eliminando el constraint restrictivo.
-     */
     private void migrarTablaCuentas(Statement stmt) throws SQLException {
-        System.out.println("⚙️  Migrando tabla cuentas para permitir mismo número en diferentes proveedores...");
+        System.out.println("Migrando tabla cuentas (eliminando constraint UNIQUE obsoleto)...");
 
-        // Paso 1: Crear tabla temporal con la nueva estructura
-        String sqlTempTable = """
-            CREATE TABLE cuentas_temp (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                usuario_id INTEGER NOT NULL,
-                numero_cuenta TEXT NOT NULL,
-                saldo REAL NOT NULL DEFAULT 0.0,
-                tipo_cuenta TEXT NOT NULL CHECK(tipo_cuenta IN ('BILLETERA', 'BANCO')),
-                alias TEXT,
-                proveedor TEXT,
-                banco TEXT,
-                cci TEXT,
-                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
-            )
-        """;
-        stmt.execute(sqlTempTable);
-
-        // Paso 2: Copiar datos existentes
-        String sqlCopyData = """
-            INSERT INTO cuentas_temp 
-            SELECT id, usuario_id, numero_cuenta, saldo, tipo_cuenta, 
-                   alias, proveedor, banco, cci, fecha_creacion
-            FROM cuentas
-        """;
-        stmt.execute(sqlCopyData);
-
-        // Paso 3: Eliminar tabla antigua
+        stmt.execute(
+            "CREATE TABLE cuentas_temp (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    usuario_id INTEGER NOT NULL," +
+            "    numero_cuenta TEXT NOT NULL," +
+            "    saldo REAL NOT NULL DEFAULT 0.0," +
+            "    tipo_cuenta TEXT NOT NULL CHECK(tipo_cuenta IN ('BILLETERA', 'BANCO'))," +
+            "    alias TEXT, proveedor TEXT, banco TEXT, cci TEXT," +
+            "    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+            "    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)" +
+            ")"
+        );
+        stmt.execute(
+            "INSERT INTO cuentas_temp " +
+            "SELECT id, usuario_id, numero_cuenta, saldo, tipo_cuenta, " +
+            "       alias, proveedor, banco, cci, fecha_creacion FROM cuentas"
+        );
         stmt.execute("DROP TABLE cuentas");
-
-        // Paso 4: Renombrar tabla temporal
         stmt.execute("ALTER TABLE cuentas_temp RENAME TO cuentas");
-
-        System.out.println("✓ Migración completada. Ahora puedes tener Yape y Plin con el mismo número.");
+        System.out.println("Migracion de tabla cuentas completada.");
     }
 
-    /**
-     * Verifica si una columna existe en una tabla de SQLite.
-     * Usado para migraciones idempotentes (ALTER TABLE seguro).
-     */
     private boolean columnaExiste(String tabla, String columna) {
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery("PRAGMA table_info(" + tabla + ")")) {
             while (rs.next()) {
-                if (columna.equalsIgnoreCase(rs.getString("name"))) {
-                    return true;
-                }
+                if (columna.equalsIgnoreCase(rs.getString("name"))) return true;
             }
         } catch (SQLException e) {
-            // Si la tabla no existe aún, la columna tampoco existe
+            // tabla aun no existe
         }
         return false;
     }
 
-    /**
-     * Cierra la conexión a la base de datos.
-     */
     public void cerrarConexion() {
         try {
             if (connection != null && !connection.isClosed()) {
                 connection.close();
-                System.out.println("✓ Conexión a base de datos cerrada.");
+                System.out.println("Conexion a base de datos cerrada.");
             }
         } catch (SQLException e) {
-            System.err.println("✗ Error al cerrar la conexión.");
+            System.err.println("Error al cerrar la conexion.");
             e.printStackTrace();
         }
     }

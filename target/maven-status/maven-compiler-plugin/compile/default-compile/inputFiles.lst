@@ -1,6 +1,7 @@
 /Users/jenner/IdeaProjects/ChatFinance/src/modelo/BilleteraDigital.java
 /Users/jenner/IdeaProjects/ChatFinance/src/modelo/Cobro.java
 /Users/jenner/IdeaProjects/ChatFinance/src/modelo/Transaccion.java
+/Users/jenner/IdeaProjects/ChatFinance/src/dao/CrudRepository.java
 /Users/jenner/IdeaProjects/ChatFinance/src/modelo/CuentaFinanciera.java
 /Users/jenner/IdeaProjects/ChatFinance/src/view/ConsoleView.java
 /Users/jenner/IdeaProjects/ChatFinance/src/modelo/INotificador.java

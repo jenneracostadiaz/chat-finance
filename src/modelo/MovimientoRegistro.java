@@ -15,20 +15,20 @@ public class MovimientoRegistro {
         INGRESO, GASTO, TRANSFERENCIA
     }
 
-    /** Categorías predefinidas para GASTOS */
+    /** Categorias predefinidas para GASTOS */
     public static final String[] CATEGORIAS_GASTO = {
-        "Alimentación 🍔",
-        "Transporte 🚕",
-        "Servicios 💡",
-        "Entretenimiento 🎬",
-        "Otros 📦"
+        "Alimentacion",
+        "Transporte",
+        "Servicios",
+        "Entretenimiento",
+        "Otros"
     };
 
-    /** Categorías predefinidas para INGRESOS */
+    /** Categorias predefinidas para INGRESOS */
     public static final String[] CATEGORIAS_INGRESO = {
-        "Sueldo 💰",
-        "Freelance 💻",
-        "Otros 📦"
+        "Sueldo",
+        "Freelance",
+        "Otros"
     };
 
     private Integer id;

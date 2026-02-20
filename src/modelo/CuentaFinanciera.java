@@ -1,19 +1,16 @@
 package modelo;
 
 /**
- * Clase abstracta que representa una cuenta financiera genérica.
- * Implementa el patrón Template Method con herencia y polimorfismo.
- * FASE 2: Gestión de Cuentas y Saldos
+ * Clase abstracta que representa una cuenta financiera.
+ * Subclases concretas: {@link BilleteraDigital}, {@link CuentaBancaria}.
  */
 public abstract class CuentaFinanciera {
+
     private Integer id;
     private Integer usuarioId;
     private String numeroCuenta;
     private Double saldo;
 
-    /**
-     * Constructor completo (usado al recuperar de la BD)
-     */
     public CuentaFinanciera(Integer id, Integer usuarioId, String numeroCuenta, Double saldo) {
         this.id = id;
         this.usuarioId = usuarioId;
@@ -21,9 +18,6 @@ public abstract class CuentaFinanciera {
         this.saldo = saldo;
     }
 
-    /**
-     * Constructor sin ID (usado al crear nuevas cuentas)
-     */
     public CuentaFinanciera(Integer usuarioId, String numeroCuenta, Double saldo) {
         this.usuarioId = usuarioId;
         this.numeroCuenta = numeroCuenta;
@@ -31,54 +25,28 @@ public abstract class CuentaFinanciera {
     }
 
     /**
-     * Método abstracto que debe ser implementado por las subclases.
-     * Devuelve una descripción detallada de la cuenta según su tipo.
-     * @return String con el detalle de la cuenta
+     * Retorna una cadena descriptiva legible de la cuenta, específica por tipo.
+     * Implementada mediante polimorfismo en cada subclase.
      */
-    public abstract String getDetalle();
+    public abstract String obtenerDetalleImprimible();
 
-    /**
-     * Método abstracto para validar la cuenta.
-     * @return true si la cuenta es válida
-     */
-    public abstract boolean validarCuenta();
-
-    /**
-     * Obtiene el tipo de cuenta (discriminador para la BD)
-     * @return String con el tipo de cuenta
-     */
+    /** Retorna el discriminador de tipo usado en la tabla Single Table Inheritance. */
     public abstract String getTipoCuenta();
 
+    /** Valida que los campos obligatorios del tipo de cuenta sean correctos. */
+    public abstract boolean validarCuenta();
+
     // Getters y Setters
-    public Integer getId() {
-        return id;
-    }
 
-    public void setId(Integer id) {
-        this.id = id;
-    }
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
 
-    public Integer getUsuarioId() {
-        return usuarioId;
-    }
+    public Integer getUsuarioId() { return usuarioId; }
+    public void setUsuarioId(Integer usuarioId) { this.usuarioId = usuarioId; }
 
-    public void setUsuarioId(Integer usuarioId) {
-        this.usuarioId = usuarioId;
-    }
+    public String getNumeroCuenta() { return numeroCuenta; }
+    public void setNumeroCuenta(String numeroCuenta) { this.numeroCuenta = numeroCuenta; }
 
-    public String getNumeroCuenta() {
-        return numeroCuenta;
-    }
-
-    public void setNumeroCuenta(String numeroCuenta) {
-        this.numeroCuenta = numeroCuenta;
-    }
-
-    public Double getSaldo() {
-        return saldo;
-    }
-
-    public void setSaldo(Double saldo) {
-        this.saldo = saldo;
-    }
+    public Double getSaldo() { return saldo; }
+    public void setSaldo(Double saldo) { this.saldo = saldo; }
 }

@@ -1,40 +1,28 @@
 package modelo;
 
-/**
- * Clase que representa una Billetera Digital (ej: Yape, Plin).
- * Extiende CuentaFinanciera e implementa polimorfismo.
- * FASE 2: Gestión de Cuentas y Saldos
- */
+/** Billetera digital vinculada a un número de celular (ej: Yape, Plin). */
 public class BilleteraDigital extends CuentaFinanciera {
-    private String alias;      // Ej: "Yape", "Plin"
-    private String proveedor;  // Ej: "BCP", "Interbank"
 
-    /**
-     * Constructor completo (usado al recuperar de la BD)
-     */
+    private String alias;
+    private String proveedor;
+
     public BilleteraDigital(Integer id, Integer usuarioId, String numeroCuenta, Double saldo,
-                           String alias, String proveedor) {
+                            String alias, String proveedor) {
         super(id, usuarioId, numeroCuenta, saldo);
         this.alias = alias;
         this.proveedor = proveedor;
     }
 
-    /**
-     * Constructor sin ID (usado al crear nuevas billeteras)
-     */
     public BilleteraDigital(Integer usuarioId, String numeroCuenta, Double saldo,
-                           String alias, String proveedor) {
+                            String alias, String proveedor) {
         super(usuarioId, numeroCuenta, saldo);
         this.alias = alias;
         this.proveedor = proveedor;
     }
 
     @Override
-    public String getDetalle() {
-        return String.format("💳 %s | %s | Número: %s",
-            alias,
-            proveedor,
-            getNumeroCuenta());
+    public String obtenerDetalleImprimible() {
+        return String.format("Billetera %s | %s | N. %s", alias, proveedor, getNumeroCuenta());
     }
 
     @Override
@@ -44,32 +32,17 @@ public class BilleteraDigital extends CuentaFinanciera {
 
     @Override
     public boolean validarCuenta() {
-        // Lógica de validación para billetera digital
-        return getNumeroCuenta() != null &&
-               !getNumeroCuenta().isEmpty() &&
-               alias != null &&
-               proveedor != null;
+        return getNumeroCuenta() != null && !getNumeroCuenta().isEmpty()
+                && alias != null && proveedor != null;
     }
 
     public String generarQR() {
-        // Lógica para generar código QR
-        return "QR:" + getProveedor() + ":" + getAlias() + ":" + getNumeroCuenta();
+        return "QR:" + proveedor + ":" + alias + ":" + getNumeroCuenta();
     }
 
-    // Getters y Setters
-    public String getAlias() {
-        return alias;
-    }
+    public String getAlias() { return alias; }
+    public void setAlias(String alias) { this.alias = alias; }
 
-    public void setAlias(String alias) {
-        this.alias = alias;
-    }
-
-    public String getProveedor() {
-        return proveedor;
-    }
-
-    public void setProveedor(String proveedor) {
-        this.proveedor = proveedor;
-    }
+    public String getProveedor() { return proveedor; }
+    public void setProveedor(String proveedor) { this.proveedor = proveedor; }
 }

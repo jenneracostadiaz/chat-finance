@@ -8,6 +8,7 @@ modelo/Cobro.class
 controller/OperacionesController.class
 controller/LoginController.class
 util/DatabaseConnection.class
+dao/CrudRepository.class
 modelo/Pago.class
 modelo/MovimientoRegistro$Tipo.class
 modelo/Transaccion.class
