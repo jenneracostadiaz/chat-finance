@@ -7,22 +7,24 @@ import view.ConsoleView;
 /**
  * Controlador de Login y gestión del menú principal.
  * Coordina la lógica entre la Vista (ConsoleView) y el Modelo (Usuario/UsuarioDAO).
- * FASE 2: Integración con gestión de cuentas
+ * FASE 3: Integración con Motor de Transacciones
  */
 public class LoginController {
     private ConsoleView vista;
     private UsuarioDAO usuarioDAO;
     private CuentaController cuentaController;
+    private OperacionesController operacionesController;
     private Usuario usuarioActual;
 
     /**
      * Constructor que inicializa el controlador con la vista y el DAO.
      */
     public LoginController() {
-        this.vista = new ConsoleView();
-        this.usuarioDAO = new UsuarioDAO();
-        this.cuentaController = new CuentaController(vista);
-        this.usuarioActual = null;
+        this.vista                  = new ConsoleView();
+        this.usuarioDAO             = new UsuarioDAO();
+        this.cuentaController       = new CuentaController(vista);
+        this.operacionesController  = new OperacionesController(vista);
+        this.usuarioActual          = null;
     }
 
     /**
@@ -121,6 +123,11 @@ public class LoginController {
                     break;
 
                 case 3:
+                    // Opción: Operaciones Financieras (FASE 3)
+                    operacionesController.mostrarMenuOperaciones(usuarioActual);
+                    break;
+
+                case 4:
                     // Opción: Salir
                     vista.mostrarDespedida();
                     continuar = false;

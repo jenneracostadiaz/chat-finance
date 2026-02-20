@@ -2,10 +2,13 @@ modelo/BilleteraDigital.class
 dao/CuentaDAO.class
 modelo/INotificador.class
 modelo/CuentaBancaria.class
+dao/TransaccionDAO.class
 modelo/Cobro.class
+controller/OperacionesController.class
 controller/LoginController.class
 util/DatabaseConnection.class
 modelo/Pago.class
+modelo/MovimientoRegistro$Tipo.class
 modelo/Transaccion.class
 modelo/Usuario.class
 dao/UsuarioDAO.class
@@ -14,5 +17,6 @@ modelo/WhatsAppService.class
 Main.class
 view/ConsoleView.class
 modelo/CuentaFinanciera.class
+modelo/MovimientoRegistro.class
 modelo/Comision.class
 controller/CuentaController.class

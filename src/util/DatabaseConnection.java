@@ -114,6 +114,21 @@ public class DatabaseConnection {
                 stmt.execute(sqlCrearTablaCuentas);
             }
 
+            // FASE 3: Tabla de transacciones
+            String sqlCrearTablaTransacciones =
+                "CREATE TABLE IF NOT EXISTS transacciones (" +
+                "    id                 INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "    cuenta_origen_id   INTEGER NOT NULL," +
+                "    cuenta_destino_id  INTEGER," +
+                "    tipo               TEXT NOT NULL CHECK(tipo IN ('INGRESO', 'GASTO', 'TRANSFERENCIA'))," +
+                "    monto              REAL NOT NULL CHECK(monto > 0)," +
+                "    descripcion        TEXT," +
+                "    fecha              TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "    FOREIGN KEY (cuenta_origen_id)  REFERENCES cuentas(id)," +
+                "    FOREIGN KEY (cuenta_destino_id) REFERENCES cuentas(id)" +
+                ")";
+            stmt.execute(sqlCrearTablaTransacciones);
+
             System.out.println("✓ Tablas de base de datos verificadas/creadas.");
         } catch (SQLException e) {
             System.err.println("✗ Error al inicializar las tablas de la base de datos.");

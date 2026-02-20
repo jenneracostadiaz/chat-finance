@@ -1,5 +1,10 @@
 package view;
 
+import modelo.CuentaFinanciera;
+import modelo.MovimientoRegistro;
+
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Scanner;
 
 /**
@@ -93,7 +98,8 @@ public class ConsoleView {
         mostrarMensaje("─".repeat(50));
         mostrarMensaje("1. Ver Mis Cuentas y Saldos");
         mostrarMensaje("2. Agregar Nueva Cuenta");
-        mostrarMensaje("3. Salir");
+        mostrarMensaje("3. 💳 Operaciones (Ingresos / Gastos / Transferencias)");
+        mostrarMensaje("4. Salir");
         mostrarMensaje("\n💡 Tip: Opción 99 para datos de prueba");
         mostrarMensaje("─".repeat(50));
         System.out.print("➤ Seleccione una opción: ");
@@ -255,6 +261,130 @@ public class ConsoleView {
     public void esperarEnter() {
         System.out.print("\n➤ Presione Enter para continuar...");
         scanner.nextLine();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FASE 3: Motor de Transacciones - Métodos de Vista
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Muestra el submenú de operaciones financieras.
+     */
+    public void mostrarMenuOperaciones() {
+        mostrarMensaje("\n" + "═".repeat(50));
+        mostrarMensaje("💳 OPERACIONES FINANCIERAS");
+        mostrarMensaje("═".repeat(50));
+        mostrarMensaje("1. 💵 Registrar Ingreso");
+        mostrarMensaje("2. 💸 Registrar Gasto");
+        mostrarMensaje("3. 🔄 Transferir entre mis cuentas");
+        mostrarMensaje("4. 📋 Ver Últimos Movimientos");
+        mostrarMensaje("0. ◀  Volver al Menú Principal");
+        mostrarMensaje("─".repeat(50));
+        System.out.print("➤ Seleccione una opción: ");
+    }
+
+    /**
+     * Muestra una cabecera de sección con formato.
+     * @param titulo Título de la sección
+     */
+    public void mostrarCabecera(String titulo) {
+        mostrarMensaje("\n" + "═".repeat(50));
+        mostrarMensaje(titulo);
+        mostrarMensaje("═".repeat(50));
+    }
+
+    /**
+     * Muestra la lista de cuentas numerada y pide al usuario seleccionar una.
+     * @param cuentas  Lista de cuentas a mostrar
+     * @param pregunta Texto descriptivo de la selección
+     * @return Índice (base 0) de la cuenta seleccionada, o -1 si cancela
+     */
+    public int seleccionarCuentaDeLista(List<CuentaFinanciera> cuentas, String pregunta) {
+        mostrarMensaje("\n" + pregunta);
+        mostrarMensaje("─".repeat(50));
+
+        int i = 1;
+        for (CuentaFinanciera c : cuentas) {
+            System.out.printf("%d. %s  │  S/ %.2f%n", i++, c.getDetalle(), c.getSaldo());
+        }
+        mostrarMensaje("0. ❌ Cancelar");
+        mostrarMensaje("─".repeat(50));
+        System.out.print("➤ Seleccione una cuenta: ");
+
+        int opcion = leerEntero();
+        if (opcion == 0 || opcion < 0 || opcion > cuentas.size()) {
+            return -1;
+        }
+        return opcion - 1; // convertir a índice base 0
+    }
+
+    /**
+     * Solicita un monto al usuario con validación básica (> 0).
+     * @param etiqueta Texto del prompt
+     * @return double con el monto ingresado (siempre positivo)
+     */
+    public double solicitarMonto(String etiqueta) {
+        while (true) {
+            System.out.print("➤ " + etiqueta + " (S/): ");
+            try {
+                double monto = Double.parseDouble(leerLinea());
+                if (monto > 0) return monto;
+                mostrarError("El monto debe ser mayor a cero.");
+            } catch (NumberFormatException e) {
+                mostrarError("Ingrese un número válido (ej: 100.50).");
+            }
+        }
+    }
+
+    /**
+     * Solicita una descripción de texto al usuario.
+     * @param etiqueta Texto del prompt
+     * @return String con la descripción (puede estar vacío si el usuario presiona Enter)
+     */
+    public String solicitarDescripcion(String etiqueta) {
+        System.out.print("➤ " + etiqueta + ": ");
+        return leerLinea();
+    }
+
+    /**
+     * Muestra un mensaje de éxito para una operación financiera.
+     * @param operacion  Nombre de la operación (ej: "INGRESO REGISTRADO")
+     * @param detalle    Línea de detalle (ej: "+ S/ 100 en Yape")
+     * @param resumen    Línea de resumen (ej: "Nuevo saldo: S/ 500.00")
+     */
+    public void mostrarExitoOperacion(String operacion, String detalle, String resumen) {
+        mostrarMensaje("\n" + "═".repeat(50));
+        mostrarMensaje("✅ " + operacion);
+        mostrarMensaje("═".repeat(50));
+        mostrarMensaje("   " + detalle);
+        mostrarMensaje("   " + resumen);
+        mostrarMensaje("═".repeat(50));
+    }
+
+    /**
+     * Muestra la lista de últimos movimientos con formato de tabla.
+     * @param movimientos Lista de movimientos a mostrar
+     */
+    public void mostrarListaMovimientos(List<MovimientoRegistro> movimientos) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
+        mostrarMensaje(String.format("%-12s %-15s %-10s %-30s",
+                "FECHA", "TIPO", "MONTO (S/)", "DESCRIPCIÓN"));
+        mostrarMensaje("─".repeat(70));
+
+        for (MovimientoRegistro m : movimientos) {
+            String fecha      = (m.getFecha() != null) ? m.getFecha().format(fmt) : "-";
+            String tipo       = m.getTipo().toString();
+            String signo      = (m.getTipo() == MovimientoRegistro.Tipo.INGRESO) ? "+" : "-";
+            String descripcion = (m.getDescripcion() != null) ? m.getDescripcion() : "-";
+
+            // Las transferencias muestran el signo según convención del origen
+            if (m.getTipo() == MovimientoRegistro.Tipo.TRANSFERENCIA) signo = "→";
+
+            System.out.printf("%-12s %-15s %s%-10.2f %-30s%n",
+                    fecha, tipo, signo, m.getMonto(), descripcion);
+        }
+        mostrarMensaje("─".repeat(70));
     }
 
     /**
