@@ -99,7 +99,8 @@ public class ConsoleView {
         mostrarMensaje("1. Ver Mis Cuentas y Saldos");
         mostrarMensaje("2. Agregar Nueva Cuenta");
         mostrarMensaje("3. 💳 Operaciones (Ingresos / Gastos / Transferencias)");
-        mostrarMensaje("4. Salir");
+        mostrarMensaje("4. 📊 Reportes y Analítica");
+        mostrarMensaje("5. Salir");
         mostrarMensaje("\n💡 Tip: Opción 99 para datos de prueba");
         mostrarMensaje("─".repeat(50));
         System.out.print("➤ Seleccione una opción: ");
@@ -363,28 +364,124 @@ public class ConsoleView {
 
     /**
      * Muestra la lista de últimos movimientos con formato de tabla.
+     * FASE 4: incluye columna Categoría.
      * @param movimientos Lista de movimientos a mostrar
      */
     public void mostrarListaMovimientos(List<MovimientoRegistro> movimientos) {
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yy HH:mm");
 
-        mostrarMensaje(String.format("%-12s %-15s %-10s %-30s",
-                "FECHA", "TIPO", "MONTO (S/)", "DESCRIPCIÓN"));
-        mostrarMensaje("─".repeat(70));
+        mostrarMensaje(String.format("%-13s %-15s %-10s %-20s %-20s",
+                "FECHA", "TIPO", "MONTO(S/)", "CATEGORÍA", "DESCRIPCIÓN"));
+        mostrarMensaje("─".repeat(80));
 
         for (MovimientoRegistro m : movimientos) {
-            String fecha      = (m.getFecha() != null) ? m.getFecha().format(fmt) : "-";
+            String fecha      = (m.getFecha()     != null) ? m.getFecha().format(fmt) : "-";
             String tipo       = m.getTipo().toString();
-            String signo      = (m.getTipo() == MovimientoRegistro.Tipo.INGRESO) ? "+" : "-";
-            String descripcion = (m.getDescripcion() != null) ? m.getDescripcion() : "-";
+            String signo      = switch (m.getTipo()) {
+                case INGRESO       -> "+";
+                case GASTO         -> "-";
+                case TRANSFERENCIA -> "→";
+            };
+            String categoria  = (m.getCategoria()    != null) ? m.getCategoria()    : "-";
+            String descripcion= (m.getDescripcion()  != null) ? m.getDescripcion()  : "-";
 
-            // Las transferencias muestran el signo según convención del origen
-            if (m.getTipo() == MovimientoRegistro.Tipo.TRANSFERENCIA) signo = "→";
-
-            System.out.printf("%-12s %-15s %s%-10.2f %-30s%n",
-                    fecha, tipo, signo, m.getMonto(), descripcion);
+            System.out.printf("%-13s %-15s %s%-9.2f %-20s %-20s%n",
+                    fecha, tipo, signo, m.getMonto(), categoria, descripcion);
         }
-        mostrarMensaje("─".repeat(70));
+        mostrarMensaje("─".repeat(80));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FASE 4: Categorías y Reportes Analíticos
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Muestra un menú numerado de categorías y devuelve la seleccionada.
+     * Si el usuario elige 0 o un índice inválido, devuelve la última categoría ("Otros").
+     *
+     * @param categorias Array de nombres de categorías (de MovimientoRegistro)
+     * @param titulo     Texto del encabezado del menú
+     * @return String con la categoría elegida
+     */
+    public String seleccionarCategoria(String[] categorias, String titulo) {
+        mostrarMensaje("\n── " + titulo + " ──");
+        for (int i = 0; i < categorias.length; i++) {
+            System.out.printf("%d. %s%n", i + 1, categorias[i]);
+        }
+        System.out.print("➤ Seleccione categoría: ");
+
+        try {
+            int opcion = leerEntero();
+            if (opcion >= 1 && opcion <= categorias.length) {
+                return categorias[opcion - 1];
+            }
+        } catch (Exception ignored) { }
+
+        // Fallback: última categoría = "Otros"
+        return categorias[categorias.length - 1];
+    }
+
+    /**
+     * Imprime el reporte analítico de gastos e ingresos por categoría con porcentajes.
+     * Usa una barra ASCII proporcional para visualizar la distribución.
+     *
+     * @param gastos    Map categoría → total (gastos)
+     * @param ingresos  Map categoría → total (ingresos)
+     */
+    public void mostrarReporteAnalitico(java.util.Map<String, Double> gastos,
+                                        java.util.Map<String, Double> ingresos) {
+        mostrarMensaje("\n" + "═".repeat(60));
+        mostrarMensaje("📊 REPORTE ANALÍTICO DE FINANZAS PERSONALES");
+        mostrarMensaje("═".repeat(60));
+
+        // ── Sección GASTOS ──────────────────────────────────────────────
+        mostrarMensaje("\n💸 RESUMEN DE GASTOS POR CATEGORÍA");
+        mostrarMensaje("─".repeat(60));
+
+        if (gastos.isEmpty()) {
+            mostrarMensaje("  ⚠️  Aún no tienes gastos registrados.");
+        } else {
+            double totalGastos = gastos.values().stream().mapToDouble(Double::doubleValue).sum();
+            for (java.util.Map.Entry<String, Double> entry : gastos.entrySet()) {
+                double pct      = (totalGastos > 0) ? (entry.getValue() / totalGastos * 100) : 0;
+                int    barLen   = (int) (pct / 5);          // cada █ = 5 %
+                String barra    = "█".repeat(barLen) + "░".repeat(20 - barLen);
+                System.out.printf("  %-22s S/ %8.2f  %5.1f%%  %s%n",
+                        entry.getKey(), entry.getValue(), pct, barra);
+            }
+            mostrarMensaje("─".repeat(60));
+            System.out.printf("  %-22s S/ %8.2f%n", "TOTAL GASTADO", totalGastos);
+        }
+
+        // ── Sección INGRESOS ─────────────────────────────────────────────
+        mostrarMensaje("\n💵 RESUMEN DE INGRESOS POR CATEGORÍA");
+        mostrarMensaje("─".repeat(60));
+
+        if (ingresos.isEmpty()) {
+            mostrarMensaje("  ⚠️  Aún no tienes ingresos registrados.");
+        } else {
+            double totalIngresos = ingresos.values().stream().mapToDouble(Double::doubleValue).sum();
+            for (java.util.Map.Entry<String, Double> entry : ingresos.entrySet()) {
+                double pct    = (totalIngresos > 0) ? (entry.getValue() / totalIngresos * 100) : 0;
+                int    barLen = (int) (pct / 5);
+                String barra  = "█".repeat(barLen) + "░".repeat(20 - barLen);
+                System.out.printf("  %-22s S/ %8.2f  %5.1f%%  %s%n",
+                        entry.getKey(), entry.getValue(), pct, barra);
+            }
+            mostrarMensaje("─".repeat(60));
+            System.out.printf("  %-22s S/ %8.2f%n", "TOTAL INGRESADO", totalIngresos);
+        }
+
+        // ── Balance neto ─────────────────────────────────────────────────
+        if (!gastos.isEmpty() || !ingresos.isEmpty()) {
+            double totalG = gastos.values().stream().mapToDouble(Double::doubleValue).sum();
+            double totalI = ingresos.values().stream().mapToDouble(Double::doubleValue).sum();
+            double balance = totalI - totalG;
+            mostrarMensaje("\n" + "═".repeat(60));
+            System.out.printf("  %-22s S/ %8.2f%n",
+                    balance >= 0 ? "✅ BALANCE NETO  +" : "⚠️  BALANCE NETO ", balance);
+            mostrarMensaje("═".repeat(60));
+        }
     }
 
     /**

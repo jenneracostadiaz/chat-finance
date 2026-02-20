@@ -113,28 +113,34 @@ public class LoginController {
 
             switch (opcion) {
                 case 1:
-                    // Opción: Ver Mis Cuentas y Saldos (FASE 2)
+                    // Ver Mis Cuentas y Saldos (FASE 2)
                     cuentaController.verSaldos(usuarioActual);
                     break;
 
                 case 2:
-                    // Opción: Agregar Cuenta (FASE 2 - IMPLEMENTADO)
+                    // Agregar Nueva Cuenta (FASE 2)
                     cuentaController.agregarCuenta(usuarioActual);
                     break;
 
                 case 3:
-                    // Opción: Operaciones Financieras (FASE 3)
+                    // Operaciones Financieras (FASE 3)
                     operacionesController.mostrarMenuOperaciones(usuarioActual);
                     break;
 
                 case 4:
-                    // Opción: Salir
+                    // Reportes y Analítica (FASE 4)
+                    operacionesController.verReporteAnalitico(usuarioActual);
+                    vista.esperarEnter();
+                    break;
+
+                case 5:
+                    // Salir
                     vista.mostrarDespedida();
                     continuar = false;
                     break;
 
                 case 99:
-                    // Opción oculta: Crear cuentas de prueba (FASE 2 - Mock)
+                    // Opción oculta: cuentas de prueba
                     cuentaController.crearCuentasDePrueba(usuarioActual);
                     break;
 

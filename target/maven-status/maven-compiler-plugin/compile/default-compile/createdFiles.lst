@@ -1,3 +1,4 @@
+view/ConsoleView$1.class
 modelo/BilleteraDigital.class
 dao/CuentaDAO.class
 modelo/INotificador.class

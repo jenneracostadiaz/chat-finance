@@ -129,6 +129,12 @@ public class DatabaseConnection {
                 ")";
             stmt.execute(sqlCrearTablaTransacciones);
 
+            // FASE 4: Agregar columna `categoria` si aún no existe (ALTER TABLE idempotente)
+            if (!columnaExiste("transacciones", "categoria")) {
+                stmt.execute("ALTER TABLE transacciones ADD COLUMN categoria TEXT");
+                System.out.println("⚙️  Migración Fase 4: columna 'categoria' añadida a transacciones.");
+            }
+
             System.out.println("✓ Tablas de base de datos verificadas/creadas.");
         } catch (SQLException e) {
             System.err.println("✗ Error al inicializar las tablas de la base de datos.");
@@ -195,6 +201,24 @@ public class DatabaseConnection {
         stmt.execute("ALTER TABLE cuentas_temp RENAME TO cuentas");
 
         System.out.println("✓ Migración completada. Ahora puedes tener Yape y Plin con el mismo número.");
+    }
+
+    /**
+     * Verifica si una columna existe en una tabla de SQLite.
+     * Usado para migraciones idempotentes (ALTER TABLE seguro).
+     */
+    private boolean columnaExiste(String tabla, String columna) {
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("PRAGMA table_info(" + tabla + ")")) {
+            while (rs.next()) {
+                if (columna.equalsIgnoreCase(rs.getString("name"))) {
+                    return true;
+                }
+            }
+        } catch (SQLException e) {
+            // Si la tabla no existe aún, la columna tampoco existe
+        }
+        return false;
     }
 
     /**
