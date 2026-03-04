@@ -1,53 +1,88 @@
 package service;
 
 /**
- * DTO (Data Transfer Object) que representa la intencion financiera
- * extraida del texto en lenguaje natural por el modelo de IA.
+ * DTO universal del Asistente IA.
+ * Representa cualquier intencion que el usuario exprese en lenguaje natural.
+ * Gson mapea los campos directamente desde el JSON devuelto por Ollama.
  *
- * Los campos se mapean directamente desde el JSON devuelto por Ollama.
+ * Intenciones soportadas:
+ *   REGISTRAR_TRANSACCION, CREAR_CUENTA, VER_REPORTE, VER_SALDOS
  */
 public class IntencionOperacionDTO {
 
-    /** Tipo de operacion: "INGRESO" o "GASTO". */
-    private String tipo;
+    // ── Clasificacion principal ───────────────────────────────────────────────
 
-    /** Monto de la operacion en soles. */
+    /**
+     * Intencion detectada por la IA.
+     * Valores: "REGISTRAR_TRANSACCION" | "CREAR_CUENTA" | "VER_REPORTE" | "VER_SALDOS"
+     */
+    private String intencion;
+
+    // ── Campos para REGISTRAR_TRANSACCION ─────────────────────────────────────
+
+    /** "INGRESO" o "GASTO". Null si no aplica. */
+    private String tipoTransaccion;
+
+    /** Monto en soles. Null si no aplica. */
     private Double monto;
 
-    /**
-     * Categoria del movimiento.
-     * Gastos: Alimentacion, Transporte, Servicios, Entretenimiento, Otros.
-     * Ingresos: Sueldo, Freelance, Otros.
-     */
+    /** Categoria del movimiento. Null si no aplica. */
     private String categoria;
 
-    /**
-     * Nombre o alias de la cuenta mencionada por el usuario
-     * (ej: "Yape", "BCP", "Plin").
-     */
-    private String cuenta;
+    // ── Campos compartidos (transaccion y crear cuenta) ───────────────────────
 
-    /** Descripcion breve del movimiento. */
+    /** Nombre/alias de la cuenta existente o de la nueva cuenta a crear. */
+    private String nombreCuenta;
+
+    // ── Campos para CREAR_CUENTA ──────────────────────────────────────────────
+
+    /** "BANCO" o "BILLETERA". Null si no aplica. */
+    private String tipoCuentaNueva;
+
+    // ── Campo general ─────────────────────────────────────────────────────────
+
+    /** Descripcion breve del movimiento o nota adicional. */
     private String descripcion;
 
     // Constructor vacio requerido por Gson
     public IntencionOperacionDTO() {}
 
-    public IntencionOperacionDTO(String tipo, Double monto, String categoria,
-                                  String cuenta, String descripcion) {
-        this.tipo        = tipo;
-        this.monto       = monto;
-        this.categoria   = categoria;
-        this.cuenta      = cuenta;
-        this.descripcion = descripcion;
+    // ── Validaciones por intencion ────────────────────────────────────────────
+
+    /** Verifica que los campos criticos para REGISTRAR_TRANSACCION esten presentes. */
+    public boolean esTransaccionValida() {
+        return tipoTransaccion != null && !tipoTransaccion.isBlank()
+                && monto != null && monto > 0
+                && nombreCuenta != null && !nombreCuenta.isBlank();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Getters y Setters
-    // ─────────────────────────────────────────────────────────────────────────
+    /** Verifica que los campos criticos para CREAR_CUENTA esten presentes. */
+    public boolean esCrearCuentaValida() {
+        return nombreCuenta != null && !nombreCuenta.isBlank()
+                && tipoCuentaNueva != null && !tipoCuentaNueva.isBlank();
+    }
 
-    public String getTipo() { return tipo; }
-    public void setTipo(String tipo) { this.tipo = tipo; }
+    /** Retorna true si la intencion es reconocida. */
+    public boolean tieneIntencionValida() {
+        return intencion != null && (
+                intencion.equals("REGISTRAR_TRANSACCION") ||
+                intencion.equals("CREAR_CUENTA")          ||
+                intencion.equals("VER_REPORTE")           ||
+                intencion.equals("VER_SALDOS")
+        );
+    }
+
+    // ── Getters y Setters ─────────────────────────────────────────────────────
+
+    public String getIntencion() { return intencion; }
+    public void setIntencion(String intencion) {
+        this.intencion = intencion != null ? intencion.toUpperCase().trim() : null;
+    }
+
+    public String getTipoTransaccion() { return tipoTransaccion; }
+    public void setTipoTransaccion(String tipoTransaccion) {
+        this.tipoTransaccion = tipoTransaccion != null ? tipoTransaccion.toUpperCase().trim() : null;
+    }
 
     public Double getMonto() { return monto; }
     public void setMonto(Double monto) { this.monto = monto; }
@@ -55,23 +90,32 @@ public class IntencionOperacionDTO {
     public String getCategoria() { return categoria; }
     public void setCategoria(String categoria) { this.categoria = categoria; }
 
-    public String getCuenta() { return cuenta; }
-    public void setCuenta(String cuenta) { this.cuenta = cuenta; }
+    public String getNombreCuenta() { return nombreCuenta; }
+    public void setNombreCuenta(String nombreCuenta) { this.nombreCuenta = nombreCuenta; }
+
+    public String getTipoCuentaNueva() { return tipoCuentaNueva; }
+    public void setTipoCuentaNueva(String tipoCuentaNueva) {
+        this.tipoCuentaNueva = tipoCuentaNueva != null ? tipoCuentaNueva.toUpperCase().trim() : null;
+    }
 
     public String getDescripcion() { return descripcion; }
     public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
 
-    /** Valida que los campos criticos tengan valores utilizables. */
-    public boolean esValido() {
-        return tipo != null && !tipo.isBlank()
-                && monto != null && monto > 0
-                && cuenta != null && !cuenta.isBlank();
-    }
+    // Alias de compatibilidad para codigo existente que usa getCuenta()
+    public String getCuenta() { return nombreCuenta; }
+    public void setCuenta(String cuenta) { this.nombreCuenta = cuenta; }
+
+    // Alias de compatibilidad para codigo existente que usa getTipo()
+    public String getTipo() { return tipoTransaccion; }
+    public void setTipo(String tipo) { setTipoTransaccion(tipo); }
 
     @Override
     public String toString() {
-        return String.format("IntencionOperacionDTO{tipo='%s', monto=%.2f, categoria='%s', cuenta='%s', descripcion='%s'}",
-                tipo, monto != null ? monto : 0.0, categoria, cuenta, descripcion);
+        return String.format(
+            "RespuestaIADTO{intencion='%s', tipoTx='%s', monto=%s, categoria='%s', " +
+            "nombreCuenta='%s', tipoCuentaNueva='%s', descripcion='%s'}",
+            intencion, tipoTransaccion,
+            monto != null ? String.format("%.2f", monto) : "null",
+            categoria, nombreCuenta, tipoCuentaNueva, descripcion);
     }
 }
-

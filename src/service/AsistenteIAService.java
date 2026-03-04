@@ -14,10 +14,11 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * Servicio de Inteligencia Artificial que se comunica con el modelo Ollama local
- * para interpretar texto en lenguaje natural y extraer una intencion financiera.
+ * Servicio de Inteligencia Artificial — Router de Intenciones.
+ * Clasifica el texto libre del usuario en una de 4 intenciones y extrae
+ * los parametros relevantes en un {@link IntencionOperacionDTO}.
  *
- * Requiere Ollama corriendo en http://localhost:11434 con el modelo "llama3.2" disponible.
+ * Requiere Ollama corriendo en http://localhost:11434 con el modelo "llama3.2".
  */
 public class AsistenteIAService {
 
@@ -29,20 +30,29 @@ public class AsistenteIAService {
     private final Gson              gson;
 
     private static final String SYSTEM_PROMPT_PLANTILLA =
-            "Eres un extractor de datos financieros. El usuario te dara un texto en espanol " +
-            "describiendo un movimiento de dinero. " +
-            "Debes extraer la intencion y devolver UNICAMENTE un objeto JSON valido con exactamente " +
-            "estas claves: \"tipo\", \"monto\", \"categoria\", \"cuenta\", \"descripcion\". " +
-            "Reglas estrictas: " +
-            "1. \"tipo\" debe ser exactamente \"INGRESO\" o \"GASTO\" en mayusculas. " +
-            "2. \"monto\" debe ser un numero decimal positivo sin simbolo de moneda. " +
-            "3. \"categoria\" para GASTO debe ser una de: Alimentacion, Transporte, Servicios, " +
-            "   Entretenimiento, Otros. Para INGRESO: Sueldo, Freelance, Otros. " +
-            "4. \"cuenta\" debe ser el alias o nombre del proveedor mencionado. " +
-            "   Cuentas disponibles del usuario: %s. Elige la que mas se parezca al texto. " +
-            "   Si no se menciona ninguna, elige la primera de la lista. " +
-            "5. \"descripcion\" debe ser un resumen breve en espanol de maximo 50 caracteres. " +
-            "No agregues texto fuera del JSON. No uses markdown. Solo el JSON puro.";
+        "Eres el cerebro de ChatFinance, una app de finanzas personales. " +
+        "Analiza el texto del usuario y devuelve UNICAMENTE un JSON con estos campos: " +
+        "\"intencion\", \"tipoTransaccion\", \"monto\", \"categoria\", \"nombreCuenta\", \"tipoCuentaNueva\", \"descripcion\". " +
+
+        "PASO 1 — Clasifica la intencion en exactamente una de estas 4 opciones (en mayusculas): " +
+        "REGISTRAR_TRANSACCION, CREAR_CUENTA, VER_REPORTE, VER_SALDOS. " +
+
+        "PASO 2 — Extrae los parametros segun la intencion. Usa null para los que no apliquen: " +
+        "- REGISTRAR_TRANSACCION: tipoTransaccion (INGRESO|GASTO), monto, categoria, nombreCuenta, descripcion. " +
+        "  Categorias GASTO: Alimentacion, Transporte, Servicios, Entretenimiento, Otros. " +
+        "  Categorias INGRESO: Sueldo, Freelance, Otros. " +
+        "  Cuentas existentes del usuario: %s. Elige la que mas se parezca; si no se menciona, elige la primera. " +
+        "- CREAR_CUENTA: nombreCuenta (nombre del banco o billetera), tipoCuentaNueva (BANCO|BILLETERA), monto (saldo inicial si se menciona). " +
+        "- VER_REPORTE: todos los parametros en null. " +
+        "- VER_SALDOS: todos los parametros en null. " +
+
+        "Ejemplos: " +
+        "  'Gaste 20 en taxi con Yape' -> {\"intencion\":\"REGISTRAR_TRANSACCION\",\"tipoTransaccion\":\"GASTO\",\"monto\":20.0,\"categoria\":\"Transporte\",\"nombreCuenta\":\"Yape\",\"tipoCuentaNueva\":null,\"descripcion\":\"Taxi\"} " +
+        "  'Crea una cuenta BCP con 500 soles' -> {\"intencion\":\"CREAR_CUENTA\",\"tipoTransaccion\":null,\"monto\":500.0,\"categoria\":null,\"nombreCuenta\":\"BCP\",\"tipoCuentaNueva\":\"BANCO\",\"descripcion\":null} " +
+        "  'Muestrame mis gastos del mes' -> {\"intencion\":\"VER_REPORTE\",\"tipoTransaccion\":null,\"monto\":null,\"categoria\":null,\"nombreCuenta\":null,\"tipoCuentaNueva\":null,\"descripcion\":null} " +
+        "  'Cuanto tengo en mis cuentas' -> {\"intencion\":\"VER_SALDOS\",\"tipoTransaccion\":null,\"monto\":null,\"categoria\":null,\"nombreCuenta\":null,\"tipoCuentaNueva\":null,\"descripcion\":null} " +
+
+        "No agregues texto fuera del JSON. No uses markdown. Solo el JSON puro.";
 
     public AsistenteIAService() {
         this.modeloChat = OllamaChatModel.builder()
@@ -56,11 +66,11 @@ public class AsistenteIAService {
     }
 
     /**
-     * Interpreta un texto libre del usuario y extrae la intencion financiera.
+     * Interpreta un texto libre del usuario y clasifica su intencion con los parametros relevantes.
      *
-     * @param textoUsuario            El texto libre escrito por el usuario.
-     * @param listaCuentasDisponibles Nombres/alias de las cuentas del usuario separados por coma.
-     * @return Un {@link IntencionOperacionDTO} con los datos extraidos, o null si falla el parseo.
+     * @param textoUsuario            Texto libre escrito por el usuario.
+     * @param listaCuentasDisponibles Nombres/alias de las cuentas del usuario, separados por coma.
+     * @return {@link IntencionOperacionDTO} con la intencion y parametros extraidos, o null si falla.
      */
     public IntencionOperacionDTO interpretarTexto(String textoUsuario, String listaCuentasDisponibles) {
         String systemPrompt = String.format(SYSTEM_PROMPT_PLANTILLA, listaCuentasDisponibles);
@@ -72,14 +82,18 @@ public class AsistenteIAService {
 
         try {
             Response<AiMessage> respuesta = modeloChat.generate(mensajes);
-            String jsonRespuesta = respuesta.content().text().trim();
-            jsonRespuesta = extraerJsonLimpio(jsonRespuesta);
+            String jsonRespuesta = extraerJsonLimpio(respuesta.content().text().trim());
 
             IntencionOperacionDTO dto = gson.fromJson(jsonRespuesta, IntencionOperacionDTO.class);
 
-            if (dto.getTipo() != null) {
-                dto.setTipo(dto.getTipo().toUpperCase().trim());
-            }
+            // Normalizar a mayusculas (el setter ya lo hace, pero por si Gson saltea el setter)
+            if (dto.getIntencion() != null)
+                dto.setIntencion(dto.getIntencion().toUpperCase().trim());
+            if (dto.getTipoTransaccion() != null)
+                dto.setTipoTransaccion(dto.getTipoTransaccion().toUpperCase().trim());
+            if (dto.getTipoCuentaNueva() != null)
+                dto.setTipoCuentaNueva(dto.getTipoCuentaNueva().toUpperCase().trim());
+
             return dto;
 
         } catch (JsonSyntaxException e) {
@@ -106,7 +120,7 @@ public class AsistenteIAService {
 
     /**
      * Extrae el primer bloque JSON de una cadena de texto.
-     * Proteccion ante respuestas con markdown o texto adicional.
+     * Proteccion ante respuestas con markdown o texto adicional de la IA.
      */
     private String extraerJsonLimpio(String texto) {
         int inicio = texto.indexOf('{');
@@ -117,4 +131,3 @@ public class AsistenteIAService {
         return texto;
     }
 }
-
