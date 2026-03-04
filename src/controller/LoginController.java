@@ -11,6 +11,7 @@ public class LoginController {
     private final UsuarioDAO usuarioDAO;
     private final CuentaController cuentaController;
     private final OperacionesController operacionesController;
+    private final AsistenteController asistenteController;
     private Usuario usuarioActual;
 
     public LoginController() {
@@ -18,6 +19,7 @@ public class LoginController {
         this.usuarioDAO            = new UsuarioDAO();
         this.cuentaController      = new CuentaController(vista);
         this.operacionesController = new OperacionesController(vista);
+        this.asistenteController   = new AsistenteController(vista);
     }
 
     public void iniciar() {
@@ -72,7 +74,8 @@ public class LoginController {
                 case 2  -> cuentaController.agregarCuenta(usuarioActual);
                 case 3  -> operacionesController.mostrarMenuOperaciones(usuarioActual);
                 case 4  -> { operacionesController.verReporteAnalitico(usuarioActual); vista.esperarEnter(); }
-                case 5  -> { vista.mostrarDespedida(); continuar = false; }
+                case 5  -> asistenteController.iniciarAsistente(usuarioActual);
+                case 6  -> { vista.mostrarDespedida(); continuar = false; }
                 case 99 -> cuentaController.crearCuentasDePrueba(usuarioActual);
                 default -> { vista.mostrarError("Opcion invalida."); vista.esperarEnter(); }
             }

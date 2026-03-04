@@ -68,7 +68,8 @@ public class ConsoleView {
         mostrarMensaje("2. Agregar Nueva Cuenta");
         mostrarMensaje("3. Operaciones (Ingresos / Gastos / Transferencias)");
         mostrarMensaje("4. Reportes y Analitica");
-        mostrarMensaje("5. Salir");
+        mostrarMensaje("5. Asistente Inteligente (registro por texto)");
+        mostrarMensaje("6. Salir");
         mostrarMensaje("\nTip: Opcion 99 para datos de prueba");
         mostrarMensaje("-".repeat(50));
         System.out.print("Seleccione una opcion: ");
